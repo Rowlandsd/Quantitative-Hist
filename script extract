@@ -1,0 +1,249 @@
+##Install and load necessary libraries. For extraction we primarily need the EBImage package available from Bioconductor and for graphing we need ggplot2. Ref 1: walk through of EBImage, ref 2: origional publication on EBImage, ref 3: ggplot2 cheatsheet pdf
+
+rm(list = ls()) #removes everything from your workspace before we begin
+source("http://bioconductor.org/biocLite.R") #sets the download site for installing packages
+biocLite("EBImage") #Downloads and installs the desired package
+
+v
+##Create vectors for counting and naming. This creates four vectors and assigns the number 1 to them. As the code runs it will use these vectors to keep track of images and assign them a number. More on this later
+
+chan1.index <- 1
+chan2.index <- 1
+chan3.index <- 1
+object.index <- 1
+
+##Create empty vectors to store your data. This creates three empty 'NULL' vectors. As you run the code mean intensity data from images will be extracted and stored in these vectors which we can then analyse later.
+
+complete.data.frame <- NULL #Mean intensity data from channels 1 and 2
+dist.measure.index1 <- NULL #Distance measure (or thickness) of the PNN from channel 1
+dist.measure.index2 <- NULL #Distance measure (or thickness) of the PNN from channel 2
+
+##Create functions. This code is comprised of four seperate 'nested' functions. A nested function is a function inside another function.
+
+##Function 1:
+
+run.script <- function(x)
+  for(i in 1:length(fn))
+  {
+    setwd("~/acan characterisation/Rtesting/testing2") #set the working directry where you images are located.
+	    print(paste0("Extracting features from image ", i, " of 185: ", file.names1[i])) #Create an update message on the progress of your script. Everytime a new loop is started a message saying "Extracting features from image x of 185" will the filename. NB Change 185 to the number of images you have in your working directory.
+    channel1<<-readImage(files = file.names1[i]) #this loads in the different channels of the image
+    channel2<<-readImage(files = file.names2[i])
+    channel3<<-readImage(files = file.names3[i])
+    file.names<<-file.names1[i] #this loads in the filenames for naming later
+    object.index <- object.index + 1 #this adds 1 to our object.index that we created earlier
+    channel3[channel3 < 0.2]<- 0 #this creates a threshold on channel3 (WFA channel). Pixels with <20% intensity are considered to be background and are immediately converted to 0. This is an arbituary threshold that I came up with myself through trial and error, feel free to play around with it (the scale is between 0 and 1). Differences between between experiments with things like antibody concetration etc will affect this. 
+    obj <- bwlabel(channel3) #This creates a list of all objects found in the image. Objects are defined simply as "connecting pixels".
+    objtab<-table(obj) #Creates a table of the found objects, gives each object a number and provides the total count of pixels in each object
+    objtab<-as.data.frame(objtab) #Converts the table to a a data frame. R is very finiky about the difference between data matricies and frames
+	    colnames(objtab)<- c("obj", "pixels")
+    pnn<-objtab$obj[objtab$pixels >1000 & objtab$pixels <200000] #Creates a list of the found objects which have pixels inbetween the range 1000 and 200000. This excludes most of the objects and makes our analysis easier. I came up with this range through trial and error. The images I was using are 1024px x 1024px therefore a maximum of >1 million. 
+    pnn<-as.character(pnn)
+    pnn.len<<-length(pnn)
+    extract.objects(obj, pnn) #With all the objects found before run the extract.objects function (Function 3)
+    rm(channel1, channel2, channel3) #Remove the images 
+    setwd("~/acan characterisation/Rtesting/testing2") #Reset the working directory and start again
+  }
+
+##Function 2: Checks to see if a vector is empty. We use this function to see if the PNN surrounds a nucleus (used later).
+	
+vector.is.empty<-function(x) return(length(x) == 0)
+
+##Function 3: Identifies and extracts PNNs. Iteratively cycles though the objects in the list that we created, investigates whether those objects surround a nuclues, crops out an image of that particular object, saves it to a directory for visual confirmation (if required), extracts data about that object (mean intensity values of all pixels in the image in the WFA and second channel and mean intensity values by distance from the centre of the object (cell soma)) and adds those data to the 'NULL' vectors that we created earlier for saving and analysis.
+
+extract.objects<-function(x, y)
+  for(i in y)
+  {
+    origional.image.chan1 <- channel3
+    origional.image.chan2 <- channel2
+	    origional.image.chan3 <- channel1
+    object <- x == i
+    object.index <- object.index + 1
+    invert.object <- !object
+    object.found <- bwlabel(invert.object)
+    object.found.table <- table(object.found)
+    object.found.table <- as.data.frame(object.found.table)
+    colnames(object.found.table)<- c("obj", "pixels")
+    object.found.table <- object.found.table[-c(1,2),]
+    refined.object<-object.found.table$obj[object.found.table$pixels >2000 & object.found.table$pixels <8000]
+	    refined.object<-as.character(refined.object)
+    cellbody<-vector.is.empty(refined.object)
+    
+    #Check if the object bisects a cell nucleus, if not move on to the next object, if so save the object for later analysis
+    if(cellbody == FALSE)
+    {
+      cytosol <- invert.object == refined.object
+      nuclei <- channel1
+      test8<-nuclei[cytosol]
+      nuc.present<-mean(test8) > 0.01
+	      nuc.present<-vector.is.empty(nuc.present)
+      
+      if(nuc.present == FALSE) #Crop the object for saving later (200px x 200px)
+      {
+        test1 <- object.found == refined.object
+        invert.test<-!test1
+        distance.image.wfa<-combine(origional.image.chan1, invert.test)
+        distance.image.chan2<-combine(origional.image.chan2, invert.test)
+        dist.maps.wfa<<-distmap(invert.test, metric=c('euclidean'))
+        dist.maps.chan2<<-distmap(invert.test, metric=c('euclidean'))
+	        feat2 <-computeFeatures.moment(test1)
+        u<-1:50
+        dist.measure(u)
+        origional.image.chan1[object == FALSE] <- 0
+        chan1<-origional.image.chan1
+        origional.image.chan2[object == FALSE] <- 0
+        chan2<-origional.image.chan2
+	        xy <- feat2[, c("m.cx", "m.cy")]
+        cropc1<-xy + c(100, 100)
+        cropc2<-xy - c(100, 100)
+	        
+        #If the crop area is out of bounds it needs to be reduced before cropping, which is achieved here
+        if(cropc1[1] > 1024)
+        {
+          excess <- cropc1[1] - 1024
+          cropc1[1] <- cropc1[1] - excess 
+        }
+	        
+        if(cropc1[2] > 1024)
+        {
+	          excess <- cropc1[2] - 1024
+          cropc1[2] <- cropc1[2] - excess 
+        }
+        
+        if(cropc1[1] < 0)
+        {
+          excess <- cropc1[1] * -1
+          cropc1[1] <- cropc1[1] + excess 
+        }
+        
+        if(cropc1[2] < 0)
+        {
+          excess <- cropc1[2] * -1
+          cropc1[2] <- cropc1[2] + excess 
+        }
+        
+        if(cropc2[1] > 1024)
+        {
+          excess <- cropc2[1] - 1024
+
+      cropc2[1] <- cropc2[1] - excess 
+        }
+        
+        if(cropc2[2] > 1024)
+        {
+          excess <- cropc2[2] - 1024
+          cropc2[2] <- cropc2[2] - excess 
+        }
+        
+        if(cropc2[1] < 0)
+
+		{	
+          excess <- cropc2[1] * -1
+          cropc2[1] <- cropc2[1] + excess 
+        }
+        
+        if(cropc2[2] < 0)
+        {
+          excess <- cropc2[2] * -1
+          cropc2[2] <- cropc2[2] + excess 
+        }
+
+
+        
+        #Crop then save the objects into the predefined folders
+        chan1.1 <- chan1[cropc1[1]:cropc2[1], cropc1[2]:cropc2[2]]
+        chan2.1 <- chan2[cropc1[1]:cropc2[1], cropc1[2]:cropc2[2]]
+        chan3.1 <- origional.image.chan3[cropc1[1]:cropc2[1], cropc1[2]:cropc2[2]]
+        m.channels<-chan1.1 + chan2.1 + chan3.1
+        setwd("~/acan characterisation/Rtesting/chan1")
+        myfile <- file.path(paste0(file.names, "_", chan1.index, ".tif"))
+        writeImage(chan1.1, file = myfile, type = "tiff")
+
+channel1.intesnisty<-as.vector(chan1.1)
+        channel1.intesnisty[channel1.intesnisty == 0] <- NA
+        channel1.intesnisty.mean<<-mean(channel1.intesnisty, na.rm=TRUE)
+        
+        
+        for(i in chan1.index)
+        {
+          chan1.index <<- chan1.index + 1
+        }
+        
+
+setwd("~/acan characterisation/Rtesting/chan2")
+        myfile <- file.path(paste0(file.names, "_", chan1.index, ".tif"))
+        writeImage(chan2.1, file = myfile, type = "tiff")
+        channel2.intesnisty<-as.vector(chan2.1)
+        channel2.intesnisty[channel2.intesnisty == 0] <- NA
+        channel2.intesnisty.mean<<-mean(channel2.intesnisty, na.rm=TRUE)
+        
+        for(i in chan2.index)
+        {
+          chan2.index <<- chan2.index + 1
+        }
+        
+        setwd("~/acan characterisation/Rtesting/merge")
+        myfile <- file.path(paste0(file.names, "_", chan1.index, ".tif"))
+        writeImage(m.channels, file = myfile, type = "tiff")
+        
+        for(i in chan3.index)
+        {
+          chan3.index <<- chan3.index + 1
+          
+        }
+        mean.data.frame <<- cbind(file.names, channel1.intesnisty.mean, channel2.intesnisty.mean)
+        complete.data.frame <<- rbind(complete.data.frame, mean.data.frame)
+      }
+    }
+    if(object.index == pnn.len)
+    {
+      break
+    }
+  }
+
+
+##Function 4: Extract distance measurements
+
+dist.measure<-function(x)
+  for(i in x)
+  {
+    dist.maps.1<-dist.maps.wfa == i
+    pixel.wfa<<-mean(channel3[dist.maps.1])
+    dist.maps.2<-dist.maps.chan2 == i
+    pixel.chan2<<-mean(channel2[dist.maps.2])
+    pixelx<<-cbind(pixel.wfa, pixel.chan2)
+    dist.measure.index1<<-rbind(dist.measure.index1, pixel.wfa, file.names)
+    dist.measure.index2<<-rbind(dist.measure.index2, pixel.chan2, file.names)
+  }
+
+
+#set your working drive and ammend filenames
+setwd("~/acan characterisation/Rtesting/testing2")
+filenames<-list.files(pattern = "*.tif")
+head(filenames)
+new.names<-gsub("^.*?_","",filenames)
+head(new.names)
+
+#create a prefix for batch loading and processing
+prefix <- rep(1:241,each=4)
+file.prefix<- 1:241
+fn<-paste(prefix, new.names, sep = "_")
+file.rename(from = list.files(pattern = "*.tif"), paste(fn))
+
+#create directories for saving cropped images
+dir.create("~/acan characterisation/Rtesting/chan1")
+dir.create("~/acan characterisation/Rtesting/chan2")
+dir.create("~/acan characterisation/Rtesting/merge")
+
+file.names1 <- dir(pattern ="*_z0_ch00.tif")
+file.names2 <- dir(pattern ="*_z0_ch01.tif")
+file.names3 <- dir(pattern ="*_z0_ch02.tif")
+
+
+run.script(fn)
+
+
+references:
+Ref 1: https://www.bioconductor.org/packages/devel/bioc/vignettes/EBImage/inst/doc/EBImage-introduction.html
+Ref 2: https://www.ncbi.nlm.nih.gov/pubmed/20338898
+Ref 3: https://www.rstudio.com/wp-content/uploads/2015/03/ggplot2-cheatsheet.pdf
