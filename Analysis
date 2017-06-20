@@ -1,0 +1,43 @@
+install.packages("ggplot2")
+library(ggplot2)
+
+##Create correlation plots
+
+head(brev)
+brev$file.names<-gsub("^.*?_","",brev$file.names)
+group<-gsub("(.*?)(\\d.*)", "\\1", brev$file.names)
+group<-gsub("(.*?)( .*)", "\\1", group)
+brev <- cbind(group, brev)
+
+#colcalisation correlation
+range(brev$channel1.intesnisty.mean)
+range(brev$channel2.intesnisty.mean)
+
+wfa.au<-brev$channel1.intesnisty.mean - 0.02805366
+max(wfa.au)
+wfa.au<-wfa.au / 0.3738744
+
+chan2.au<-brev$channel2.intesnisty.mean - 0.01509941
+max(chan2.au)
+chan2.au<-chan2.au / 0.1383498
+
+brev<-cbind(brev, wfa.au, chan2.au)
+brev$condition = "Brevican"
+
+
+colours <- c("#00BFC4","#F8766D","#C77CFF")
+a <- ggplot(brev, aes(wfa.au, chan2.au, group = group, colour = group)) 
+a + geom_jitter() +
+  scale_colour_manual(values=colours)  +
+  expand_limits(y=c(0,1.25)) +
+  scale_y_continuous(breaks = c(0, 0.25, 0.5, 0.75, 1, 1.25)) +
+  scale_x_continuous(breaks = c(0, 0.25, 0.5, 0.75, 1, 1.25)) +
+  geom_smooth(method = "lm") +
+  ylab("Brevican Mean Intensity (AU)") +
+  xlab("WFA Mean Intensity (AU)") +
+  theme_classic(base_size = 18) +
+  theme(legend.title=element_blank(), axis.line= element_line(), axis.ticks = element_line()) 
+
+
+
+
