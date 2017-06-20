@@ -1,0 +1,6 @@
+install.packages("plotly")
+library(plotly)
+setwd("~/acan characterisation/Rtesting/testing2")
+image1<-readImage("newfile.tif")
+image1<-as.matrix(image1)
+plot_ly(z = image1, type = "heatmap", zmax = 1, zmin = 0)
