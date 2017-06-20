@@ -26,7 +26,7 @@ run.script <- function(x)
   for(i in 1:length(fn))
   {
     setwd("~/acan characterisation/Rtesting/testing2") #set the working directry where you images are located.
-	    print(paste0("Extracting features from image ", i, " of 185: ", file.names1[i])) #Create an update message on the progress of your script. Everytime a new loop is started a message saying "Extracting features from image x of 185" will the filename. NB Change 185 to the number of images you have in your working directory.
+    print(paste0("Extracting features from image ", i, " of 185: ", file.names1[i])) #Create an update message on the progress of your script. Everytime a new loop is started a message saying "Extracting features from image x of 185" will the filename. NB Change 185 to the number of images you have in your working directory.
     channel1<<-readImage(files = file.names1[i]) #this loads in the different channels of the image
     channel2<<-readImage(files = file.names2[i])
     channel3<<-readImage(files = file.names3[i])
@@ -36,7 +36,7 @@ run.script <- function(x)
     obj <- bwlabel(channel3) #This creates a list of all objects found in the image. Objects are defined simply as "connecting pixels".
     objtab<-table(obj) #Creates a table of the found objects, gives each object a number and provides the total count of pixels in each object
     objtab<-as.data.frame(objtab) #Converts the table to a a data frame. R is very finiky about the difference between data matricies and frames
-	    colnames(objtab)<- c("obj", "pixels")
+    colnames(objtab)<- c("obj", "pixels")
     pnn<-objtab$obj[objtab$pixels >1000 & objtab$pixels <200000] #Creates a list of the found objects which have pixels inbetween the range 1000 and 200000. This excludes most of the objects and makes our analysis easier. I came up with this range through trial and error. The images I was using are 1024px x 1024px therefore a maximum of >1 million. 
     pnn<-as.character(pnn)
     pnn.len<<-length(pnn)
@@ -56,7 +56,7 @@ extract.objects<-function(x, y)
   {
     origional.image.chan1 <- channel3
     origional.image.chan2 <- channel2
-	    origional.image.chan3 <- channel1
+    origional.image.chan3 <- channel1
     object <- x == i
     object.index <- object.index + 1
     invert.object <- !object
@@ -66,7 +66,7 @@ extract.objects<-function(x, y)
     colnames(object.found.table)<- c("obj", "pixels")
     object.found.table <- object.found.table[-c(1,2),]
     refined.object<-object.found.table$obj[object.found.table$pixels >2000 & object.found.table$pixels <8000]
-	    refined.object<-as.character(refined.object)
+    refined.object<-as.character(refined.object)
     cellbody<-vector.is.empty(refined.object)
     
     #Check if the object bisects a cell nucleus, if not move on to the next object, if so save the object for later analysis
@@ -76,7 +76,7 @@ extract.objects<-function(x, y)
       nuclei <- channel1
       test8<-nuclei[cytosol]
       nuc.present<-mean(test8) > 0.01
-	      nuc.present<-vector.is.empty(nuc.present)
+      nuc.present<-vector.is.empty(nuc.present)
       
       if(nuc.present == FALSE) #Crop the object for saving later (200px x 200px)
       {
@@ -86,14 +86,14 @@ extract.objects<-function(x, y)
         distance.image.chan2<-combine(origional.image.chan2, invert.test)
         dist.maps.wfa<<-distmap(invert.test, metric=c('euclidean'))
         dist.maps.chan2<<-distmap(invert.test, metric=c('euclidean'))
-	        feat2 <-computeFeatures.moment(test1)
+        feat2 <-computeFeatures.moment(test1)
         u<-1:50
         dist.measure(u)
         origional.image.chan1[object == FALSE] <- 0
         chan1<-origional.image.chan1
         origional.image.chan2[object == FALSE] <- 0
         chan2<-origional.image.chan2
-	        xy <- feat2[, c("m.cx", "m.cy")]
+        xy <- feat2[, c("m.cx", "m.cy")]
         cropc1<-xy + c(100, 100)
         cropc2<-xy - c(100, 100)
 	        
@@ -126,7 +126,7 @@ extract.objects<-function(x, y)
         {
           excess <- cropc2[1] - 1024
 
-      cropc2[1] <- cropc2[1] - excess 
+        cropc2[1] <- cropc2[1] - excess 
         }
         
         if(cropc2[2] > 1024)
@@ -159,7 +159,7 @@ extract.objects<-function(x, y)
         myfile <- file.path(paste0(file.names, "_", chan1.index, ".tif"))
         writeImage(chan1.1, file = myfile, type = "tiff")
 
-channel1.intesnisty<-as.vector(chan1.1)
+        channel1.intesnisty<-as.vector(chan1.1)
         channel1.intesnisty[channel1.intesnisty == 0] <- NA
         channel1.intesnisty.mean<<-mean(channel1.intesnisty, na.rm=TRUE)
         
